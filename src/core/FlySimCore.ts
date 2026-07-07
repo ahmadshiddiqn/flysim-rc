@@ -425,6 +425,15 @@ export class FlySimCore {
       rightBrake: this.getProperty('fcs/right-brake-cmd-norm'),
       centerBrake: this.getProperty('fcs/center-brake-cmd-norm'),
       steering: this.getProperty('fcs/steer-cmd-norm'),
+      rollRate: this.getProperty('velocities/p-rad_sec'),
+      pitchRate: this.getProperty('velocities/q-rad_sec'),
+      yawRate: this.getProperty('velocities/r-rad_sec'),
+      accelX: this.getProperty('accelerations/a-pilot-x-ft_sec2'),
+      accelY: this.getProperty('accelerations/a-pilot-y-ft_sec2'),
+      accelZ: this.getProperty('accelerations/a-pilot-z-ft_sec2'),
+      vNorth: this.getProperty('velocities/v-north-fps'),
+      vEast: this.getProperty('velocities/v-east-fps'),
+      vDown: this.getProperty('velocities/v-down-fps'),
       simTime: this.getSimTime(),
       systemTimeMs: performance.now()
     };

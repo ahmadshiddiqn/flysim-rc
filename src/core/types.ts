@@ -30,6 +30,17 @@ export interface AircraftState {
   rightBrake: number;
   centerBrake: number;
   steering: number;
+  // Body rates / specific force / NED velocity — required by external
+  // autopilot interfaces (ArduPilot JSON backend, PX4 HIL_SENSOR).
+  rollRate: number;        // p, rad/s (body)
+  pitchRate: number;       // q, rad/s (body)
+  yawRate: number;         // r, rad/s (body)
+  accelX: number;          // specific force at pilot, ft/s² (body x, fwd)
+  accelY: number;          // ft/s² (body y, right)
+  accelZ: number;          // ft/s² (body z, down) — ≈ -32.17 at rest
+  vNorth: number;          // ft/s
+  vEast: number;           // ft/s
+  vDown: number;           // ft/s
   simTime: number;
   systemTimeMs: number;   // wall-clock ms (performance.now()), for SITL time sync
 }
