@@ -1,0 +1,24 @@
+{
+  "description": "Patches applied to vendor/jsbsim for Emscripten/WASM compatibility. Applied in alphabetical filename order by scripts/apply-patches.sh; the 01-/02- prefix encodes the intended sequence.",
+  "patches": [
+    {
+      "file": "01-emscripten-compat.patch",
+      "purpose": "Emscripten libc/compiler compatibility: zero out ANSI terminal-color escape codes, fix strerror_r POSIX-vs-GNU selection, and broaden the BSD socket include branch to cover Emscripten.",
+      "files": [
+        "src/FGJSBBase.cpp",
+        "src/input_output/FGfdmSocket.cpp",
+        "src/simgear/misc/strutils.cxx"
+      ]
+    },
+    {
+      "file": "02-emscripten-io-guards.patch",
+      "purpose": "Compile out socket/network/FlightGear I/O for the WASM target: guard feenableexcept, conditionally exclude socket sources from the InputOutput CMake target, and replace socket/UDP/FlightGear input/output instantiation with graceful XML error logs under __EMSCRIPTEN__.",
+      "files": [
+        "src/JSBSim.cpp",
+        "src/input_output/CMakeLists.txt",
+        "src/models/FGInput.cpp",
+        "src/models/FGOutput.cpp"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "name": "flysim-rc",
+  "version": "1.3.0-beta.1",
+  "description": "Browser-based RC Aircraft Simulator using JSBSim compiled to WebAssembly",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./wasm": {
+      "types": "./dist/wasm.d.ts",
+      "import": "./dist/wasm.js"
+    },
+    "./wasm/module": {
+      "default": "./dist/wasm/jsbsim_wasm.mjs"
+    },
+    "./wasm/binary": {
+      "default": "./dist/wasm/jsbsim_wasm.wasm"
+    }
+  },
+  "scripts": {
+    "prepare:jsbsim": "bash ./scripts/prepare-jsbsim.sh",
+    "update:jsbsim": "bash ./scripts/update-jsbsim.sh",
+    "generate:bindings": "node ./scripts/bindings-generator/index.mjs",
+    "build:wasm": "bash ./scripts/build-wasm.sh",
+    "copy:wasm": "node ./scripts/copy-wasm.mjs",
+    "build:sdk": "tsup --config tsup.config.ts && npm run copy:wasm",
+    "build": "npm run generate:bindings && npm run build:wasm && npm run build:sdk",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf build dist generated src/generated"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "puppeteer": "^24.38.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.9"
+  },
+  "keywords": [
+    "jsbsim",
+    "flight-simulator",
+    "rc-aircraft",
+    "webassembly",
+    "wasm"
+  ]
+}

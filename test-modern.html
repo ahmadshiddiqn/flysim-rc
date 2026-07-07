@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlySim-RC Test - Modern SDK</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        h2 { color: #666; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        button:hover:not(:disabled) {
+            background: #0056b3;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry { margin: 2px 0; }
+        .log-entry.error { color: #dc3545; }
+        .log-entry.success { color: #28a745; }
+        .log-entry.warn { color: #ffc107; }
+        .telemetry {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .telemetry-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .telemetry-label { font-weight: bold; color: #666; }
+        .telemetry-value { font-size: 1.2em; color: #333; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>FlySim-RC Test</h1>
+        <p>Testing the modern TypeScript SDK with embind bindings</p>
+    </div>
+
+    <div class="panel">
+        <h2>Controls</h2>
+        <button id="btnInit">Initialize SDK</button>
+        <button id="btnLoad" disabled>Load c172x Aircraft</button>
+        <button id="btnStart" disabled>Start Engine</button>
+        <button id="btnRun" disabled>Start Simulation</button>
+        <button id="btnStop" disabled>Stop Simulation</button>
+        <button id="btnReset" disabled>Reset</button>
+        <br><br>
+        <label>Throttle: <input type="range" id="throttle" min="0" max="1" step="0.1" value="0" disabled></label>
+    </div>
+
+    <div class="panel">
+        <h2>Telemetry</h2>
+        <div class="telemetry" id="telemetry">
+            <div class="telemetry-item">
+                <div class="telemetry-label">Status</div>
+                <div class="telemetry-value" id="status">Not initialized</div>
+            </div>
+            <div class="telemetry-item">
+                <div class="telemetry-label">Sim Time</div>
+                <div class="telemetry-value" id="simTime">0.00 s</div>
+            </div>
+            <div class="telemetry-item">
+                <div class="telemetry-label">Altitude</div>
+                <div class="telemetry-value" id="altitude">0.00 ft</div>
+            </div>
+            <div class="telemetry-item">
+                <div class="telemetry-label">Airspeed</div>
+                <div class="telemetry-value" id="airspeed">0.00 kts</div>
+            </div>
+            <div class="telemetry-item">
+                <div class="telemetry-label">Engine RPM</div>
+                <div class="telemetry-value" id="rpm">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Log</h2>
+        <div class="log" id="log"></div>
+    </div>
+
+    <script type="module">
+        import { FlySimCore } from './dist/index.js';
+
+        let sim = null;
+        const logEl = document.getElementById('log');
+        const statusEl = document.getElementById('status');
+
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function updateTelemetry(state) {
+            if (!state) return;
+            document.getElementById('simTime').textContent = state.simTime.toFixed(2) + ' s';
+            document.getElementById('altitude').textContent = state.altitude.toFixed(2) + ' ft';
+            document.getElementById('airspeed').textContent = state.airspeed.toFixed(2) + ' kts';
+            if (sim) {
+                const rpm = sim.getProperty('propulsion/engine[0]/rpm');
+                document.getElementById('rpm').textContent = rpm.toFixed(0);
+            }
+        }
+
+        window.initSim = async function() {
+            try {
+                log('Initializing FlySimCore SDK...');
+                statusEl.textContent = 'Initializing...';
+                
+                sim = await FlySimCore.create({
+                    moduleUrl: './public/wasm/jsbsim_wasm.mjs',
+                    wasmUrl: './public/wasm/jsbsim_wasm.wasm'
+                });
+                
+                log('SDK initialized successfully', 'success');
+                statusEl.textContent = 'SDK Ready';
+                
+                document.getElementById('btnInit').disabled = true;
+                document.getElementById('btnLoad').disabled = false;
+            } catch (error) {
+                log(`Initialization failed: ${error.message}`, 'error');
+                statusEl.textContent = 'Error';
+            }
+        };
+
+        window.loadAircraft = async function() {
+            try {
+                log('Loading c172x aircraft via script...');
+                statusEl.textContent = 'Loading aircraft...';
+                
+                // Load aircraft files into VFS
+                log('Loading aircraft files...');
+                const files = [
+                    'c172x/c172x.xml',
+                    'c172x/c172ap.xml',
+                    'c172x/reset00.xml',
+                    'c172x/test_script.xml',
+                    'eng_io320.xml',
+                    'prop_75in2f.xml',
+                    'GNCUtilities.xml',
+                    'Autopilot.xml'
+                ];
+                
+                for (const file of files) {
+                    try {
+                        const response = await fetch(`/public/aircraft/${file}`);
+                        if (!response.ok) {
+                            console.warn(`File not found: ${file}`);
+                            continue;
+                        }
+                        const content = await response.text();
+                        
+                        // Determine VFS path
+                        let vfsPath;
+                        if (file.includes('eng_') || file.includes('prop_')) {
+                            vfsPath = `engine/${file}`;
+                        } else if (file.includes('c172x/')) {
+                            vfsPath = `aircraft/${file}`;
+                        } else if (file.includes('GNC') || file.includes('Autopilot')) {
+                            vfsPath = `systems/${file}`;
+                        } else {
+                            vfsPath = `aircraft/${file}`;
+                        }
+                        
+                        sim.writeDataFile(vfsPath, content);
+                        log(`Loaded: ${vfsPath}`);
+                    } catch (e) {
+                        console.warn(`Failed to load ${file}:`, e);
+                    }
+                }
+                
+                // Load script instead of model directly (like 0x62)
+                log('Loading script...');
+                let scriptLoaded = false;
+                try {
+                    scriptLoaded = sim.loadScript('/runtime/aircraft/c172x/test_script.xml');
+                    log(`LoadScript returned: ${scriptLoaded}`);
+                } catch (e) {
+                    // Embind may throw error codes but aircraft still loads
+                    log(`LoadScript note: ${e} (continuing anyway)`, 'warn');
+                }
+                
+                log('Running initial conditions...');
+                let icResult = false;
+                try {
+                    icResult = sim.runIC();
+                    log(`RunIC returned: ${icResult}`);
+                } catch (e) {
+                    log(`RunIC note: ${e} (continuing anyway)`, 'warn');
+                }
+                
+                // Check if we have a valid simulation state
+                const simTime = sim.getSimTime();
+                log(`Simulation time: ${simTime}`);
+                
+                log('Aircraft loaded successfully!', 'success');
+                statusEl.textContent = 'Aircraft ready';
+                
+                document.getElementById('btnLoad').disabled = true;
+                document.getElementById('btnStart').disabled = false;
+                document.getElementById('throttle').disabled = false;
+            } catch (error) {
+                log(`Load failed: ${error.message || error}`, 'error');
+                console.error('Full error:', error);
+            }
+        };
+
+        window.startEngine = async function() {
+            try {
+                log('Starting engine...');
+                statusEl.textContent = 'Starting engine...';
+                
+                await sim.startEngine();
+                
+                log('Engine started', 'success');
+                statusEl.textContent = 'Engine running';
+                
+                document.getElementById('btnStart').disabled = true;
+                document.getElementById('btnRun').disabled = false;
+                document.getElementById('throttle').disabled = false;
+            } catch (error) {
+                log(`Engine start failed: ${error.message}`, 'error');
+            }
+        };
+
+        window.startSim = function() {
+            sim.on('update', updateTelemetry);
+            sim.start();
+            log('Simulation started', 'success');
+            statusEl.textContent = 'Running';
+            
+            document.getElementById('btnRun').disabled = true;
+            document.getElementById('btnStop').disabled = false;
+        };
+
+        window.stopSim = function() {
+            sim.stop();
+            log('Simulation stopped');
+            statusEl.textContent = 'Stopped';
+            
+            document.getElementById('btnRun').disabled = false;
+            document.getElementById('btnStop').disabled = true;
+        };
+
+        window.resetSim = function() {
+            sim.stop();
+            sim.runIC();
+            log('Reset to initial conditions');
+            statusEl.textContent = 'Reset';
+        };
+
+        // Event listeners
+        document.getElementById('btnInit').onclick = window.initSim;
+        document.getElementById('btnLoad').onclick = window.loadAircraft;
+        document.getElementById('btnStart').onclick = window.startEngine;
+        document.getElementById('btnRun').onclick = window.startSim;
+        document.getElementById('btnStop').onclick = window.stopSim;
+        document.getElementById('btnReset').onclick = window.resetSim;
+        
+        document.getElementById('throttle').oninput = function(e) {
+            if (sim) {
+                sim.setControls({ throttle: parseFloat(e.target.value) });
+            }
+        };
+
+        log('Page loaded. Click Initialize to begin.');
+    </script>
+</body>
+</html>

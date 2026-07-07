@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlySim-RC Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        h1 {
+            color: #4fc3f7;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .controls {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .controls h2 {
+            color: #4fc3f7;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        button {
+            background: #4fc3f7;
+            color: #1a1a2e;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #29b6f6;
+        }
+        
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #1a1a2e;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .label {
+            color: #888;
+        }
+        
+        .value {
+            color: #4fc3f7;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .telemetry {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .telemetry h2 {
+            grid-column: 1 / -1;
+            color: #4fc3f7;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .telemetry-group {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        
+        .telemetry-group h3 {
+            color: #7c4dff;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+        
+        .log {
+            background: #0f0f0f;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .log-entry {
+            padding: 3px 0;
+            border-bottom: 1px solid #222;
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .log-info { color: #4fc3f7; }
+        .log-error { color: #ff5252; }
+        .log-success { color: #69f0ae; }
+        .log-warn { color: #ffd740; }
+        
+        .input-test {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .input-test h2 {
+            color: #4fc3f7;
+            margin-bottom: 15px;
+        }
+        
+        .control-sliders {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .slider-group label {
+            color: #888;
+            font-size: 0.9em;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        .slider-value {
+            color: #4fc3f7;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛩️ FlySim-RC Test</h1>
+        
+        <div class="controls">
+            <h2>Simulation Controls</h2>
+            <button id="btnInit" onclick="initSim()">Initialize</button>
+            <button id="btnLoad" onclick="loadAircraft()" disabled>Load J3Cub</button>
+            <button id="btnStart" onclick="startSim()" disabled>Start</button>
+            <button id="btnStop" onclick="stopSim()" disabled>Stop</button>
+            <button id="btnReset" onclick="resetSim()" disabled>Reset</button>
+        </div>
+        
+        <div class="status">
+            <div class="status-item">
+                <span class="label">Status:</span>
+                <span class="value" id="simStatus">Not initialized</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Aircraft:</span>
+                <span class="value" id="fdmId">-</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Sim Time:</span>
+                <span class="value" id="simTime">0.00 s</span>
+            </div>
+            <div class="status-item">
+                <span class="label">FPS:</span>
+                <span class="value" id="fps">0</span>
+            </div>
+        </div>
+        
+        <div class="telemetry">
+            <h2>Telemetry</h2>
+            
+            <div class="telemetry-group">
+                <h3>Position</h3>
+                <div class="status-item">
+                    <span class="label">Altitude:</span>
+                    <span class="value" id="altitude">0 ft</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Latitude:</span>
+                    <span class="value" id="latitude">0°</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Longitude:</span>
+                    <span class="value" id="longitude">0°</span>
+                </div>
+            </div>
+            
+            <div class="telemetry-group">
+                <h3>Attitude</h3>
+                <div class="status-item">
+                    <span class="label">Roll:</span>
+                    <span class="value" id="roll">0°</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Pitch:</span>
+                    <span class="value" id="pitch">0°</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Heading:</span>
+                    <span class="value" id="heading">0°</span>
+                </div>
+            </div>
+            
+            <div class="telemetry-group">
+                <h3>Velocities</h3>
+                <div class="status-item">
+                    <span class="label">Airspeed:</span>
+                    <span class="value" id="airspeed">0 kt</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Groundspeed:</span>
+                    <span class="value" id="groundspeed">0 kt</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">V/S:</span>
+                    <span class="value" id="vs">0 fpm</span>
+                </div>
+            </div>
+            
+            <div class="telemetry-group">
+                <h3>Controls</h3>
+                <div class="status-item">
+                    <span class="label">Aileron:</span>
+                    <span class="value" id="dispAileron">0%</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Elevator:</span>
+                    <span class="value" id="dispElevator">0%</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Rudder:</span>
+                    <span class="value" id="dispRudder">0%</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">Throttle:</span>
+                    <span class="value" id="dispThrottle">0%</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-test">
+            <h2>Manual Controls (Keyboard: WASD + QE)</h2>
+            <div class="control-sliders">
+                <div class="slider-group">
+                    <label>Aileron (Roll): <span class="slider-value" id="valAileron">0</span></label>
+                    <input type="range" id="sliderAileron" min="-1" max="1" step="0.01" value="0">
+                </div>
+                <div class="slider-group">
+                    <label>Elevator (Pitch): <span class="slider-value" id="valElevator">0</span></label>
+                    <input type="range" id="sliderElevator" min="-1" max="1" step="0.01" value="0">
+                </div>
+                <div class="slider-group">
+                    <label>Rudder (Yaw): <span class="slider-value" id="valRudder">0</span></label>
+                    <input type="range" id="sliderRudder" min="-1" max="1" step="0.01" value="0">
+                </div>
+                <div class="slider-group">
+                    <label>Throttle: <span class="slider-value" id="valThrottle">0</span></label>
+                    <input type="range" id="sliderThrottle" min="0" max="1" step="0.01" value="0">
+                </div>
+            </div>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script type="module">
+        import { FlySimCore } from './dist/index.js';
+        
+        // Global variables
+        let sim = null;
+        let isRunning = false;
+        let lastFrameTime = performance.now();
+        let frameCount = 0;
+        let lastFpsTime = performance.now();
+        
+        // DOM elements
+        const btnInit = document.getElementById('btnInit');
+        const btnLoad = document.getElementById('btnLoad');
+        const btnStart = document.getElementById('btnStart');
+        const btnStop = document.getElementById('btnStop');
+        const btnReset = document.getElementById('btnReset');
+        const logDiv = document.getElementById('log');
+        
+        // Control sliders
+        const sliders = {
+            aileron: document.getElementById('sliderAileron'),
+            elevator: document.getElementById('sliderElevator'),
+            rudder: document.getElementById('sliderRudder'),
+            throttle: document.getElementById('sliderThrottle')
+        };
+        
+        // Logging function
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        // Update status display
+        function updateStatus(state) {
+            if (!state) return;
+            
+            document.getElementById('simTime').textContent = state.simTime.toFixed(2) + ' s';
+            document.getElementById('altitude').textContent = state.altitude.toFixed(1) + ' ft';
+            document.getElementById('latitude').textContent = state.latitude.toFixed(6) + '°';
+            document.getElementById('longitude').textContent = state.longitude.toFixed(6) + '°';
+            document.getElementById('roll').textContent = (state.roll * 57.3).toFixed(1) + '°';
+            document.getElementById('pitch').textContent = (state.pitch * 57.3).toFixed(1) + '°';
+            document.getElementById('heading').textContent = (state.heading * 57.3).toFixed(1) + '°';
+            document.getElementById('airspeed').textContent = (state.airspeed * 0.592484).toFixed(1) + ' kt';
+            document.getElementById('groundspeed').textContent = (state.groundspeed * 0.592484).toFixed(1) + ' kt';
+            document.getElementById('vs').textContent = (state.verticalSpeed * 60).toFixed(0) + ' fpm';
+            
+            document.getElementById('dispAileron').textContent = (state.aileron * 100).toFixed(0) + '%';
+            document.getElementById('dispElevator').textContent = (state.elevator * 100).toFixed(0) + '%';
+            document.getElementById('dispRudder').textContent = (state.rudder * 100).toFixed(0) + '%';
+            document.getElementById('dispThrottle').textContent = (state.throttle * 100).toFixed(0) + '%';
+        }
+        
+        // Update FPS counter
+        function updateFPS() {
+            frameCount++;
+            const now = performance.now();
+            if (now - lastFpsTime >= 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastFpsTime = now;
+            }
+        }
+        
+        // Initialize simulation
+        window.initSim = async function() {
+            log('Initializing FlySimCore...');
+
+            try {
+                sim = await FlySimCore.create({
+                    moduleUrl: new URL('./public/wasm/jsbsim_wasm.mjs', location.href).href,
+                    wasmUrl: new URL('./public/wasm/jsbsim_wasm.wasm', location.href).href
+                });
+                sim.on('update', (state) => { updateStatus(state); updateFPS(); });
+                sim.on('error', (error) => log(`Error: ${error?.message ?? error}`, 'error'));
+                sim.on('aircraft-loaded', ({ model }) => log(`Aircraft loaded: ${model}`, 'success'));
+
+                log('FlySimCore initialized successfully', 'success');
+                document.getElementById('simStatus').textContent = 'Initialized';
+                btnInit.disabled = true;
+                btnLoad.disabled = false;
+
+                // Export sim to window for debugging
+                window.sim = sim;
+                console.log('window.sim exported for debugging');
+            } catch (error) {
+                log(`Initialization error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+        
+        // Load aircraft
+        window.loadAircraft = async function() {
+            log('Loading J3Cub aircraft...');
+
+            try {
+                const files = [
+                    'J3Cub/J3Cub.xml',
+                    'J3Cub/Systems/Conventional Controls.xml',
+                    'J3Cub/Engines/CM7445 MCCauley.xml',
+                    'J3Cub/Engines/Continental A-65-8.xml'
+                ];
+                await sim.loadAircraftFromUrl('J3Cub', './aircraft', files);
+                sim.runIC();
+
+                document.getElementById('fdmId').textContent = 'J3Cub';
+                document.getElementById('simStatus').textContent = 'Aircraft loaded';
+
+                btnLoad.disabled = true;
+                btnStart.disabled = false;
+                btnReset.disabled = false;
+            } catch (error) {
+                log(`Failed to load aircraft: ${error.message}`, 'error');
+            }
+        };
+        
+        // Start simulation
+        window.startSim = function() {
+            log('Starting simulation...');
+            sim.start();
+            isRunning = true;
+            document.getElementById('simStatus').textContent = 'Running';
+            
+            btnStart.disabled = true;
+            btnStop.disabled = false;
+            log('Simulation started', 'success');
+        };
+        
+        // Stop simulation
+        window.stopSim = function() {
+            log('Stopping simulation...');
+            sim.stop();
+            isRunning = false;
+            document.getElementById('simStatus').textContent = 'Stopped';
+            
+            btnStart.disabled = false;
+            btnStop.disabled = true;
+            log('Simulation stopped');
+        };
+        
+        // Reset simulation
+        window.resetSim = function() {
+            log('Resetting aircraft...');
+            sim.runIC();
+
+            // Reset sliders
+            sliders.aileron.value = 0;
+            sliders.elevator.value = 0;
+            sliders.rudder.value = 0;
+            sliders.throttle.value = 0;
+            updateSliderLabels();
+            
+            log('Aircraft reset', 'success');
+        };
+        
+        // Update slider labels
+        function updateSliderLabels() {
+            document.getElementById('valAileron').textContent = sliders.aileron.value;
+            document.getElementById('valElevator').textContent = sliders.elevator.value;
+            document.getElementById('valRudder').textContent = sliders.rudder.value;
+            document.getElementById('valThrottle').textContent = sliders.throttle.value;
+        }
+        
+        // Slider change handlers
+        Object.keys(sliders).forEach(key => {
+            sliders[key].addEventListener('input', () => {
+                updateSliderLabels();
+                if (sim) {
+                    sim.setControls({
+                        aileron: parseFloat(sliders.aileron.value),
+                        elevator: parseFloat(sliders.elevator.value),
+                        rudder: parseFloat(sliders.rudder.value),
+                        throttle: parseFloat(sliders.throttle.value)
+                    });
+                }
+            });
+        });
+        
+        // Keyboard controls
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            updateControlsFromKeyboard();
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+            updateControlsFromKeyboard();
+        });
+        
+        function updateControlsFromKeyboard() {
+            // WASD for pitch/roll
+            let aileron = 0;
+            let elevator = 0;
+            let rudder = 0;
+            let throttle = parseFloat(sliders.throttle.value);
+            
+            if (keys['a'] || keys['arrowleft']) aileron = -1;
+            if (keys['d'] || keys['arrowright']) aileron = 1;
+            if (keys['w'] || keys['arrowup']) elevator = -1;
+            if (keys['s'] || keys['arrowdown']) elevator = 1;
+            if (keys['q']) rudder = -1;
+            if (keys['e']) rudder = 1;
+            if (keys['shift']) throttle = Math.min(throttle + 0.1, 1);
+            if (keys['control']) throttle = Math.max(throttle - 0.1, 0);
+            
+            // Update sliders
+            sliders.aileron.value = aileron;
+            sliders.elevator.value = elevator;
+            sliders.rudder.value = rudder;
+            sliders.throttle.value = throttle;
+            updateSliderLabels();
+            
+            // Send to sim
+            if (sim) {
+                sim.setControls({ aileron, elevator, rudder, throttle });
+            }
+        }
+        
+        // Initial log
+        log('FlySim-RC Test Page loaded');
+        log('Click "Initialize" to start');
+    </script>
+</body>
+</html>

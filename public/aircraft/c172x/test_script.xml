@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<runscript name="C172 Test">
+  <use aircraft="c172x"/>
+  
+  <run start="0.0" end="100.0" dt="0.0083333">
+    <event name="Initialize">
+      <condition>simulation/sim-time-sec ge 0.0</condition>
+      <set name="simulation/dt" value="0.0083333"/>
+      <set name="simulation/integrator/rate/position" value="4"/>
+      <set name="simulation/integrator/rate/velocity" value="4"/>
+      <set name="simulation/integrator/rate/rotation" value="4"/>
+    </event>
+  </run>
+</runscript>

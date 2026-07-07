@@ -1,0 +1,125 @@
+name: Update JSBSim
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: JSBSim tag to update to, for example v1.3.1. Leave blank for latest tag.
+        required: false
+        type: string
+  schedule:
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  EMSDK_VERSION: 5.0.2
+
+jobs:
+  update:
+    name: Update JSBSim pin
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ github.token }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
+
+      - name: Cache Emscripten SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ runner.os }}-${{ env.EMSDK_VERSION }}
+
+      - name: Install Emscripten SDK
+        run: |
+          if [ ! -d "$HOME/emsdk/.git" ]; then
+            git clone https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
+          fi
+          cd "$HOME/emsdk"
+          git fetch --tags --quiet
+          ./emsdk install "$EMSDK_VERSION"
+          ./emsdk activate "$EMSDK_VERSION"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Resolve target tag
+        id: target
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag="$(git ls-remote --tags --refs https://github.com/JSBSim-Team/jsbsim.git 'refs/tags/v*' \
+              | sed 's#.*refs/tags/##' \
+              | sort -V \
+              | tail -n 1)"
+          fi
+
+          if [ -z "$tag" ]; then
+            echo "No JSBSim tag found" >&2
+            exit 1
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Resolved JSBSim tag: $tag"
+
+      - name: Update JSBSim
+        run: |
+          source "$HOME/emsdk/emsdk_env.sh"
+          npm run update:jsbsim -- --tag "${{ steps.target.outputs.tag }}"
+          npm run build:sdk
+
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_TAG: ${{ steps.target.outputs.tag }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          branch="automation/update-jsbsim-${TARGET_TAG}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add .
+          git commit -m "Update JSBSim to ${TARGET_TAG}"
+          git push --force-with-lease origin "$branch"
+
+          if gh pr view "$branch" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh pr edit "$branch" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Update JSBSim to ${TARGET_TAG}" \
+              --body "Automated JSBSim update to ${TARGET_TAG}. The workflow regenerated bindings, rebuilt WASM, rebuilt the SDK, typechecked, and ran tests."
+          else
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base "$BASE_BRANCH" \
+              --head "$branch" \
+              --title "Update JSBSim to ${TARGET_TAG}" \
+              --body "Automated JSBSim update to ${TARGET_TAG}. The workflow regenerated bindings, rebuilt WASM, rebuilt the SDK, typechecked, and ran tests."
+          fi
