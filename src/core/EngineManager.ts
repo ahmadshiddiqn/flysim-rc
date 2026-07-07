@@ -1,6 +1,7 @@
 import type { PropertyAccess } from './types.js';
 
-const MAX_SPIN_UP_STEPS = 100; // ~1 second at 120 Hz
+// Real piston engines need 2-3 s of cranking to catch (c172p: ~300 steps).
+const MAX_SPIN_UP_STEPS = 600; // ~5 seconds at 120 Hz
 
 type EngineEventCallback = {
   onStarted: (data: { rpm: number; attempts: number }) => void;
@@ -48,9 +49,16 @@ export class EngineManager {
     if (!this.spinUpResolve) return;
 
     this.spinUpAttempts++;
-    const rpm = this.props.getProperty('propulsion/engine[0]/rpm');
+    // JSBSim exposes piston RPM as engine-rpm (there is no plain "rpm").
+    const rpm = this.props.getProperty('propulsion/engine[0]/engine-rpm');
 
     if (rpm > 440 || this.spinUpAttempts >= MAX_SPIN_UP_STEPS) {
+      if (rpm <= 440) {
+        // Cranking never caught (electric/turbine/exotic engines, or a model
+        // that needs primer states we don't simulate). Force-start every
+        // engine — sim usability wins over start-procedure realism here.
+        this.props.setProperty('propulsion/set-running', -1);
+      }
       this.props.setProperty('propulsion/starter_cmd', 0);
       this._running = true;
       const resolve = this.spinUpResolve;
@@ -83,6 +91,17 @@ export class EngineManager {
     if (!this._running && !this.spinUpResolve) {
       this.releaseBrakes();
       this.start();
+    }
+  }
+
+  /** Clear engine flags without touching properties (exec is being replaced). */
+  resetState(): void {
+    this._running = false;
+    this.spinUpAttempts = 0;
+    if (this.spinUpResolve) {
+      const resolve = this.spinUpResolve;
+      this.spinUpResolve = null;
+      resolve();
     }
   }
 

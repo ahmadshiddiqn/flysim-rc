@@ -50,8 +50,13 @@ interface FGFDMExec {
 
 export class FlySimCore {
   private exec: FGFDMExec | null = null;
+  private module: EmscriptenModule | null = null;
   private vfs: WasmVfsManager | null = null;
   private isRunning = false;
+  private modelLoaded = false;
+  private pathConfig: {
+    rootDir: string; aircraftPath: string; enginePath: string; systemsPath: string;
+  } = { rootDir: '/runtime', aircraftPath: 'aircraft', enginePath: 'engine', systemsPath: 'systems' };
   private engine!: EngineManager;
   private physicsRate = 120; // Hz
   private physicsDt = 1000 / this.physicsRate; // ms
@@ -62,9 +67,10 @@ export class FlySimCore {
   private aircraftLoader!: AircraftLoader;
   private logListeners: Map<FlySimEvent, Set<(data: any) => void>> = new Map();
 
-  private constructor(exec: FGFDMExec, vfs: WasmVfsManager) {
+  private constructor(exec: FGFDMExec, vfs: WasmVfsManager, module: EmscriptenModule) {
     this.exec = exec;
     this.vfs = vfs;
+    this.module = module;
 
     this.logListeners.set('update', new Set());
     this.logListeners.set('error', new Set());
@@ -92,39 +98,15 @@ export class FlySimCore {
    * Creates a new FlySimCore instance with initialized WASM module
    */
   static async create(options: FlySimOptions): Promise<FlySimCore> {
-    // Dynamically import the WASM module
-    const wasmModuleUrl = options.moduleUrl;
-    const wasmBinaryUrl = options.wasmUrl;
-    
-    const moduleFactory = await import(wasmModuleUrl);
-    const module = await moduleFactory.default({
-      locateFile: (path: string) => {
-        if (path.endsWith('.wasm')) {
-          return wasmBinaryUrl;
-        }
-        return path;
-      },
-      print: (text: string) => {
-        console.log('[JSBSim]', text);
-      },
-      printErr: (text: string) => {
-        console.error('[JSBSim]', text);
-      }
-    }) as EmscriptenModule;
+    const engine = await FlySimEngine.load(options);
+    return engine.createCore();
+  }
 
-    const runtimeRoot = options.runtimeRoot || '/runtime';
-    const vfs = new WasmVfsManager(module, runtimeRoot);
-    
-    if (options.persistence?.enabled) {
-      await vfs.enablePersistence();
-    }
-
+  /** @internal Used by FlySimEngine to mint instances on a shared module. */
+  static _fromModule(module: EmscriptenModule, vfs: WasmVfsManager): FlySimCore {
     const exec = new module.FGFDMExec();
-    const core = new FlySimCore(exec, vfs);
-    
-    // Configure default paths
+    const core = new FlySimCore(exec, vfs, module);
     core.configurePaths();
-    
     return core;
   }
 
@@ -139,11 +121,32 @@ export class FlySimCore {
   }): void {
     if (!this.exec) return;
     
-    const rootDir = options?.rootDir || '/runtime';
-    this.exec.SetRootDir(rootDir);
-    this.exec.SetAircraftPath(options?.aircraftPath || 'aircraft');
-    this.exec.SetEnginePath(options?.enginePath || 'engine');
-    this.exec.SetSystemsPath(options?.systemsPath || 'systems');
+    this.pathConfig = {
+      rootDir:      options?.rootDir      || this.pathConfig.rootDir,
+      aircraftPath: options?.aircraftPath || this.pathConfig.aircraftPath,
+      enginePath:   options?.enginePath   || this.pathConfig.enginePath,
+      systemsPath:  options?.systemsPath  || this.pathConfig.systemsPath,
+    };
+    this.exec.SetRootDir(this.pathConfig.rootDir);
+    this.exec.SetAircraftPath(this.pathConfig.aircraftPath);
+    this.exec.SetEnginePath(this.pathConfig.enginePath);
+    this.exec.SetSystemsPath(this.pathConfig.systemsPath);
+  }
+
+  /**
+   * Replace the FGFDMExec with a fresh one. JSBSim's model re-load path is
+   * broken under WASM — a second LoadModel on the same exec corrupts the
+   * vtable (later virtual calls trap with "table index is out of bounds"),
+   * so aircraft switching must recreate the exec.
+   */
+  private recreateExec(): void {
+    if (!this.module) throw new Error('Not initialized');
+    this.stop();
+    this.engine.resetState();
+    this.exec?.delete();
+    this.exec = new this.module.FGFDMExec();
+    this.configurePaths(this.pathConfig);
+    this.modelLoaded = false;
   }
 
   /**
@@ -172,14 +175,18 @@ export class FlySimCore {
 
     const addModelToPath = options?.addModelToPath ?? true;
 
+    // Switching aircraft requires a fresh exec (see recreateExec).
+    if (this.modelLoaded) this.recreateExec();
+
     try {
-      const loaded = this.exec.LoadModel(model, addModelToPath);
+      const loaded = this.exec!.LoadModel(model, addModelToPath);
       // Defensive: embind should return a boolean; a non-boolean (e.g. a leaked
       // numeric pointer) is treated as a failure rather than falsey "success".
       const ok = typeof loaded === 'boolean' ? loaded : false;
       if (!ok) {
         throw new JSBSimLoadError(`LoadModel failed for "${model}"`, { model, detail: loaded });
       }
+      this.modelLoaded = true;
       this.emit('aircraft-loaded', { model });
       return true;
     } catch (error) {
@@ -198,12 +205,14 @@ export class FlySimCore {
     if (!this.exec) {
       throw new Error('Not initialized');
     }
+    if (this.modelLoaded) this.recreateExec();
     try {
-      const ok = this.exec.LoadScript(scriptPath, deltaT, initFile);
+      const ok = this.exec!.LoadScript(scriptPath, deltaT, initFile);
       if (!ok) {
         throw new JSBSimLoadError(`LoadScript failed for "${scriptPath}"`, { model: scriptPath });
       }
-      this.exec.RunIC();
+      this.exec!.RunIC();
+      this.modelLoaded = true;
       this.emit('aircraft-loaded', { model: scriptPath });
       return true;
     } catch (error) {
@@ -303,6 +312,18 @@ export class FlySimCore {
     }
 
     this.engine.onPhysicsStep();
+  }
+
+  /**
+   * Advance the simulation by exactly one physics step. For headless use
+   * (Node, workers, multiplayer servers) where the RAF-driven start() loop
+   * is unavailable; also drives engine spin-up.
+   */
+  stepOnce(): boolean {
+    if (!this.exec) throw new Error('Not initialized');
+    const ok = this.exec.Run();
+    this.engine.onPhysicsStep();
+    return ok;
   }
 
   /**
@@ -531,6 +552,49 @@ export class FlySimCore {
   [Symbol.asyncDispose](): Promise<void> {
     this.destroy();
     return Promise.resolve();
+  }
+}
+
+/**
+ * Loads the JSBSim WASM module once and mints FlySimCore instances that share
+ * it (module + VFS). Each instance owns its own FGFDMExec, so multiple
+ * aircraft can be simulated simultaneously — the basis for multiplayer.
+ *
+ * ```ts
+ * const engine = await FlySimEngine.load({ moduleUrl, wasmUrl });
+ * const ownship = engine.createCore();
+ * const traffic = engine.createCore();  // shares WASM + aircraft files
+ * ```
+ */
+export class FlySimEngine {
+  private constructor(
+    private module: EmscriptenModule,
+    private vfs: WasmVfsManager,
+  ) {}
+
+  static async load(options: FlySimOptions): Promise<FlySimEngine> {
+    const moduleFactory = await import(/* @vite-ignore */ options.moduleUrl);
+    const module = await moduleFactory.default({
+      locateFile: (path: string) => path.endsWith('.wasm') ? options.wasmUrl : path,
+      print:    (text: string) => { console.log('[JSBSim]', text); },
+      printErr: (text: string) => { console.error('[JSBSim]', text); },
+    }) as EmscriptenModule;
+
+    const vfs = new WasmVfsManager(module, options.runtimeRoot || '/runtime');
+    if (options.persistence?.enabled) {
+      await vfs.enablePersistence();
+    }
+    return new FlySimEngine(module, vfs);
+  }
+
+  /** Create a new independent simulation instance on the shared module. */
+  createCore(): FlySimCore {
+    return FlySimCore._fromModule(this.module, this.vfs);
+  }
+
+  /** Shared VFS — aircraft files written here are visible to every core. */
+  get sharedVfs(): WasmVfsManager {
+    return this.vfs;
   }
 }
 

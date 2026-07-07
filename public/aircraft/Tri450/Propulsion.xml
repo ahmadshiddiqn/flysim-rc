@@ -1,0 +1,71 @@
+<?xml version="1.0" ?>
+
+<propulsion>
+  <engine file="DJI_E305" name="motor M0 (60 deg)">
+    <thruster file="DJI_9450">
+      <location unit="M">
+        <x>-0.125</x>
+        <y>0.2165</y>
+        <z>0.025</z>
+      </location>
+      <orient unit="DEG">
+        <roll>0</roll>
+        <pitch>90</pitch>
+        <yaw>0</yaw>
+      </orient>
+      <sense>1.0</sense>
+      <p_factor>0.0</p_factor>
+    </thruster>
+  </engine>
+
+  <engine file="DJI_E305" name="motor M1 (180 deg)">
+    <thruster file="DJI_9450">
+      <location unit="M">
+        <x>0.25</x>
+        <y>0</y>
+        <z>0.025</z>
+      </location>
+      <orient unit="DEG">
+        <roll>0</roll>
+        <pitch>90</pitch>
+        <yaw>0</yaw>
+      </orient>
+      <sense>-1.0</sense>
+      <p_factor>0.0</p_factor>
+    </thruster>
+  </engine>
+
+  <engine file="DJI_E305" name="motor M2 (300 deg)">
+    <thruster file="DJI_9450">
+      <location unit="M">
+        <x>-0.125</x>
+        <y>-0.2165</y>
+        <z>0.025</z>
+      </location>
+      <orient unit="DEG">
+        <roll>0</roll>
+        <pitch>90</pitch>
+        <yaw>0</yaw>
+      </orient>
+      <sense>1.0</sense>
+      <p_factor>0.0</p_factor>
+    </thruster>
+  </engine>
+
+  <engine file="DJI_E305" name="tail yaw rotor">
+    <thruster file="DJI_9450">
+      <location unit="M">
+        <x>0.3</x>
+        <y>0</y>
+        <z>0.025</z>
+      </location>
+      <orient unit="DEG">
+        <roll>0</roll>
+        <pitch>0</pitch>
+        <yaw>90</yaw>
+      </orient>
+      <sense>1.0</sense>
+      <p_factor>0.0</p_factor>
+    </thruster>
+  </engine>
+</propulsion>

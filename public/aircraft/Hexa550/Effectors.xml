@@ -1,0 +1,59 @@
+<?xml version="1.0" ?>
+
+<system name="Effectors">
+  <channel name="Electronic Speed Controllers">
+    <actuator name="ESC M0">
+      <input>fcs/cmdEscM0_nd</input>
+      <clipto>
+        <min>0.0</min>
+        <max>1.0</max>
+      </clipto>
+      <output>fcs/throttle-pos-norm[0]</output>
+    </actuator>
+
+    <actuator name="ESC M1">
+      <input>fcs/cmdEscM1_nd</input>
+      <clipto>
+        <min>0.0</min>
+        <max>1.0</max>
+      </clipto>
+      <output>fcs/throttle-pos-norm[1]</output>
+    </actuator>
+
+    <actuator name="ESC M2">
+      <input>fcs/cmdEscM2_nd</input>
+      <clipto>
+        <min>0.0</min>
+        <max>1.0</max>
+      </clipto>
+      <output>fcs/throttle-pos-norm[2]</output>
+    </actuator>
+
+    <actuator name="ESC M3">
+      <input>fcs/cmdEscM3_nd</input>
+      <clipto>
+        <min>0.0</min>
+        <max>1.0</max>
+      </clipto>
+      <output>fcs/throttle-pos-norm[3]</output>
+    </actuator>
+
+    <actuator name="ESC M4">
+      <input>fcs/cmdEscM4_nd</input>
+      <clipto>
+        <min>0.0</min>
+        <max>1.0</max>
+      </clipto>
+      <output>fcs/throttle-pos-norm[4]</output>
+    </actuator>
+
+    <actuator name="ESC M5">
+      <input>fcs/cmdEscM5_nd</input>
+      <clipto>
+        <min>0.0</min>
+        <max>1.0</max>
+      </clipto>
+      <output>fcs/throttle-pos-norm[5]</output>
+    </actuator>
+  </channel>
+</system>

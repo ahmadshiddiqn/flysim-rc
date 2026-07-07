@@ -23,7 +23,13 @@ export class DefaultFileResolver implements AircraftFileResolver {
     ];
   }
 
-  classifyFile(_aircraftName: string, file: string): FileCategory {
+  classifyFile(aircraftName: string, file: string): FileCategory {
+    // Aircraft-relative paths (p51d/Engines/…) always belong to the aircraft tree.
+    if (file.startsWith(`${aircraftName}/`)) return 'aircraft';
+    // Explicit prefixes are authoritative — heuristics can't cover names
+    // like F100-PW-229.xml or wright1903_propellers.xml.
+    if (file.startsWith('engine/')) return 'engine';
+    if (file.startsWith('systems/')) return 'system';
     if (file.includes('eng_') || file.includes('prop_')) return 'engine';
     if (file.includes('GNC') || file.includes('Autopilot')) return 'system';
     return 'aircraft';
@@ -32,15 +38,15 @@ export class DefaultFileResolver implements AircraftFileResolver {
   resolveFetchUrl(aircraftName: string, file: string, baseUrl: string): string {
     const category = this.classifyFile(aircraftName, file);
     const isAircraftFile = file.startsWith(`${aircraftName}/`);
-    if (category === 'engine' && !isAircraftFile) return `/engine/${file}`;
-    if (category === 'system' && !isAircraftFile) return `/systems/${file}`;
+    if (category === 'engine' && !isAircraftFile) return `/engine/${file.replace(/^engine\//, '')}`;
+    if (category === 'system' && !isAircraftFile) return `/systems/${file.replace(/^systems\//, '')}`;
     return `${baseUrl}/${file}`;
   }
 
   resolveVfsPath(aircraftName: string, file: string): string {
     const category = this.classifyFile(aircraftName, file);
-    if (category === 'engine') return `engine/${file}`;
-    if (category === 'system') return `systems/${file}`;
+    if (category === 'engine') return `engine/${file.replace(/^engine\//, '')}`;
+    if (category === 'system') return `systems/${file.replace(/^systems\//, '')}`;
     return `aircraft/${file}`;
   }
 }

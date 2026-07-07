@@ -1,0 +1,210 @@
+<?xml version="1.0" ?>
+<flight_control name="FCS: Tri450">
+  <channel name="Pilot_Inputs">
+    <summer name="pilotRoll_norm">
+      <input>fcs/aileron-cmd-norm</input>
+      <input>fcs/roll-trim-cmd-norm</input>
+      <clipto>
+        <min>-1.0</min>
+        <max>1.0</max>
+      </clipto>
+      <output>fcs/pilotRoll_norm</output>
+    </summer>
+    <summer name="pilotPitch_norm">
+      <input>fcs/elevator-cmd-norm</input>
+      <input>fcs/pitch-trim-cmd-norm</input>
+      <clipto>
+        <min>-1.0</min>
+        <max>1.0</max>
+      </clipto>
+      <output>fcs/pilotPitch_norm</output>
+    </summer>
+    <summer name="pilotYaw_norm">
+      <input>fcs/rudder-cmd-norm</input>
+      <input>fcs/yaw-trim-cmd-norm</input>
+      <clipto>
+        <min>-1.0</min>
+        <max>1.0</max>
+      </clipto>
+      <output>fcs/pilotYaw_norm</output>
+    </summer>
+
+    <pure_gain name="refRoll_rps">
+      <input>fcs/pilotRoll_norm</input>
+      <gain>0.75</gain>
+      <output>fcs/refRoll_rps</output>
+    </pure_gain>
+    <pure_gain name="refPitch_rps">
+      <input>fcs/pilotPitch_norm</input>
+      <gain>0.75</gain>
+      <output>fcs/refPitch_rps</output>
+    </pure_gain>
+    <pure_gain name="refYaw_rps">
+      <input>fcs/pilotYaw_norm</input>
+      <gain>0.75</gain>
+      <output>fcs/refYaw_rps</output>
+    </pure_gain>
+  </channel>
+
+  <channel name="InnerLoop-Rates">
+    <summer>
+      <input>fcs/refRoll_rps</input>
+      <input>-velocities/pi-rad_sec</input>
+      <output>fcs/errRoll_rps</output>
+    </summer>
+    <pid name="fcs/cmdRoll_rps">
+      <input>fcs/errRoll_rps</input>
+      <kp>0.150</kp>
+      <ki>0.050</ki>
+      <kd>0.003</kd>
+    </pid>
+
+    <summer>
+      <input>fcs/refPitch_rps</input>
+      <input>-velocities/qi-rad_sec</input>
+      <output>fcs/errPitch_rps</output>
+    </summer>
+    <pid name="fcs/cmdPitch_rps">
+      <input>fcs/errPitch_rps</input>
+      <kp>0.150</kp>
+      <ki>0.050</ki>
+      <kd>0.003</kd>
+    </pid>
+
+    <summer>
+      <input>fcs/refYaw_rps</input>
+      <input>-velocities/ri-rad_sec</input>
+      <output>fcs/errYaw_rps</output>
+    </summer>
+    <pid name="fcs/cmdYaw_rps">
+      <input>fcs/errYaw_rps</input>
+      <kp>0.300</kp>
+      <ki>0.100</ki>
+      <kd>0.000</kd>
+    </pid>
+  </channel>
+
+  <channel name="Control Mixer">
+    <pure_gain name="cmdHeave_2_M0">
+      <input>fcs/throttle-cmd-norm</input>
+      <gain>1.0</gain>
+      <output>fcs/cmdHeave_2_M0_nd</output>
+    </pure_gain>
+    <pure_gain name="cmdRoll_2_M0">
+      <input>fcs/cmdRoll_rps</input>
+      <gain>-1.2247</gain>
+      <output>fcs/cmdRoll_2_M0_nd</output>
+    </pure_gain>
+    <pure_gain name="cmdPitch_2_M0">
+      <input>fcs/cmdPitch_rps</input>
+      <gain>0.7071</gain>
+      <output>fcs/cmdPitch_2_M0_nd</output>
+    </pure_gain>
+    <pure_gain name="cmdYaw_2_M0">
+      <input>fcs/cmdYaw_rps</input>
+      <gain>0</gain>
+      <output>fcs/cmdYaw_2_M0_nd</output>
+    </pure_gain>
+    <summer name="cmdM0_nd">
+      <input>fcs/cmdHeave_2_M0_nd</input>
+      <input>fcs/cmdRoll_2_M0_nd</input>
+      <input>fcs/cmdPitch_2_M0_nd</input>
+      <input>fcs/cmdYaw_2_M0_nd</input>
+      <output>fcs/cmdM0_nd</output>
+    </summer>
+
+    <pure_gain name="cmdHeave_2_M1">
+      <input>fcs/throttle-cmd-norm</input>
+      <gain>1.0</gain>
+      <output>fcs/cmdHeave_2_M1_nd</output>
+    </pure_gain>
+    <pure_gain name="cmdRoll_2_M1">
+      <input>fcs/cmdRoll_rps</input>
+      <gain>0</gain>
+      <output>fcs/cmdRoll_2_M1_nd</output>
+    </pure_gain>
+    <pure_gain name="cmdPitch_2_M1">
+      <input>fcs/cmdPitch_rps</input>
+      <gain>-1.4142</gain>
+      <output>fcs/cmdPitch_2_M1_nd</output>
+    </pure_gain>
+    <pure_gain name="cmdYaw_2_M1">
+      <input>fcs/cmdYaw_rps</input>
+      <gain>0</gain>
+      <output>fcs/cmdYaw_2_M1_nd</output>
+    </pure_gain>
+    <summer name="cmdM1_nd">
+      <input>fcs/cmdHeave_2_M1_nd</input>
+      <input>fcs/cmdRoll_2_M1_nd</input>
+      <input>fcs/cmdPitch_2_M1_nd</input>
+      <input>fcs/cmdYaw_2_M1_nd</input>
+      <output>fcs/cmdM1_nd</output>
+    </summer>
+
+    <pure_gain name="cmdHeave_2_M2">
+      <input>fcs/throttle-cmd-norm</input>
+      <gain>1.0</gain>
+      <output>fcs/cmdHeave_2_M2_nd</output>
+    </pure_gain>
+    <pure_gain name="cmdRoll_2_M2">
+      <input>fcs/cmdRoll_rps</input>
+      <gain>1.2247</gain>
+      <output>fcs/cmdRoll_2_M2_nd</output>
+    </pure_gain>
+    <pure_gain name="cmdPitch_2_M2">
+      <input>fcs/cmdPitch_rps</input>
+      <gain>0.7071</gain>
+      <output>fcs/cmdPitch_2_M2_nd</output>
+    </pure_gain>
+    <pure_gain name="cmdYaw_2_M2">
+      <input>fcs/cmdYaw_rps</input>
+      <gain>0</gain>
+      <output>fcs/cmdYaw_2_M2_nd</output>
+    </pure_gain>
+    <summer name="cmdM2_nd">
+      <input>fcs/cmdHeave_2_M2_nd</input>
+      <input>fcs/cmdRoll_2_M2_nd</input>
+      <input>fcs/cmdPitch_2_M2_nd</input>
+      <input>fcs/cmdYaw_2_M2_nd</input>
+      <output>fcs/cmdM2_nd</output>
+    </summer>
+  </channel>
+
+  <channel name="Tail Yaw Rotor">
+    <!-- Bias keeps the (one-directional) tail rotor mid-range so the yaw
+         PID can command moments in both directions; blowing right yaws the
+         nose left, hence the negative gain. -->
+    <pure_gain name="cmdYaw_2_tail">
+      <input>fcs/cmdYaw_rps</input>
+      <gain>-0.6</gain>
+      <output>fcs/cmdYawTail_nd</output>
+    </pure_gain>
+    <summer name="cmdEscTail">
+      <input>fcs/cmdYawTail_nd</input>
+      <bias>0.5</bias>
+      <output>fcs/cmdEscTail_nd</output>
+    </summer>
+  </channel>
+
+  <property value="0.0">fcs/cmdM0_ext_nd</property>
+  <property value="0.0">fcs/cmdM1_ext_nd</property>
+  <property value="0.0">fcs/cmdM2_ext_nd</property>
+
+  <channel name="External Input Summations">
+    <summer>
+      <input>fcs/cmdM0_nd</input>
+      <input>fcs/cmdM0_ext_nd</input>
+      <output>fcs/cmdEscM0_nd</output>
+    </summer>
+    <summer>
+      <input>fcs/cmdM1_nd</input>
+      <input>fcs/cmdM1_ext_nd</input>
+      <output>fcs/cmdEscM1_nd</output>
+    </summer>
+    <summer>
+      <input>fcs/cmdM2_nd</input>
+      <input>fcs/cmdM2_ext_nd</input>
+      <output>fcs/cmdEscM2_nd</output>
+    </summer>
+  </channel>
+</flight_control>

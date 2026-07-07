@@ -1,6 +1,6 @@
 // Main entry point for FlySim-RC SDK
 
-export { FlySimCore } from './core/FlySimCore.js';
+export { FlySimCore, FlySimEngine } from './core/FlySimCore.js';
 export { WasmVfsManager } from './core/vfs.js';
 export { EngineManager } from './core/EngineManager.js';
 export { AircraftLoader, DefaultFileResolver } from './core/AircraftLoader.js';

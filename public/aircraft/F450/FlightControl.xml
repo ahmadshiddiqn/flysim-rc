@@ -1,5 +1,8 @@
 <?xml version="1.0" ?>
 <flight_control name="FCS: quad-copter">
+  <!-- flysim-rc patch: the five rate-PID gate gains were fcs/ScasEngage (default 0);
+       property-valued gains fail to resolve in the standalone WASM build, so they
+       are fixed at 1.0 = SCAS always engaged. -->
   <channel name="Pilot_Inputs">
     <summer name="pilotRoll_norm">
       <input>fcs/aileron-cmd-norm</input>
@@ -61,7 +64,7 @@
 
     <pure_gain>
       <input>fcs/errPhi_rad</input>
-      <gain>fcs/ScasEngage</gain>
+      <gain>1.0</gain>
       <output>fcs/errPhi_rad</output>
     </pure_gain>
 
@@ -80,7 +83,7 @@
 
     <pure_gain>
       <input>fcs/errTheta_rad</input>
-      <gain>fcs/ScasEngage</gain>
+      <gain>1.0</gain>
       <output>fcs/errTheta_rad</output>
     </pure_gain>
 
@@ -102,7 +105,7 @@
 
     <pure_gain>
       <input>fcs/errRoll_rps</input>
-      <gain>fcs/ScasEngage</gain>
+      <gain>1.0</gain>
       <output>fcs/errRoll_rps</output>
     </pure_gain>
 
@@ -122,7 +125,7 @@
 
     <pure_gain>
       <input>fcs/errPitch_rps</input>
-      <gain>fcs/ScasEngage</gain>
+      <gain>1.0</gain>
       <output>fcs/errPitch_rps</output>
     </pure_gain>
 
@@ -142,7 +145,7 @@
 
     <pure_gain>
       <input>fcs/errYaw_rps</input>
-      <gain>fcs/ScasEngage</gain>
+      <gain>1.0</gain>
       <output>fcs/errYaw_rps</output>
     </pure_gain>
 
