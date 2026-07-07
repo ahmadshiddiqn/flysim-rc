@@ -315,6 +315,16 @@ export class FlySimCore {
   }
 
   /**
+   * Write a file into the JSBSim runtime VFS (path relative to the runtime
+   * root, e.g. "aircraft/myplane/myplane.xml" or "engine/mymotor.xml").
+   * Enables user-supplied aircraft uploads without going through fetch.
+   */
+  writeRuntimeFile(path: string, data: string | Uint8Array): void {
+    if (!this.vfs) throw new Error('Not initialized');
+    this.vfs.writeRuntimeFile(path, data);
+  }
+
+  /**
    * Advance the simulation by exactly one physics step. For headless use
    * (Node, workers, multiplayer servers) where the RAF-driven start() loop
    * is unavailable; also drives engine spin-up.
