@@ -102,7 +102,10 @@ class JsonBridge:
             "velocity": [float(v) * FT2M for v in vel_fps],
             "airspeed": float(s.get("airspeed", 0.0)) * FT2M,
         }
-        return ("\n" + json.dumps(reply) + "\n").encode("ascii")
+        # Compact separators are mandatory: ArduPilot's parse_sensors() uses
+        # sscanf("[%f, %f, %f]") whose literal '[' must directly follow the
+        # key's ':' — json.dumps' default ": " breaks it silently.
+        return ("\n" + json.dumps(reply, separators=(",", ":")) + "\n").encode("ascii")
 
     def _handle_servo_packet(self, data: bytes, addr, transport):
         if len(data) < SERVO_STRUCT.size:
@@ -125,10 +128,12 @@ class JsonBridge:
         now = asyncio.get_event_loop().time()
         if self.ws_client is not None and now - self.last_ctrl_sent > 1 / 60:
             self.last_ctrl_sent = now
-            # ArduPlane default outputs: 1=aileron 2=elevator 3=throttle 4=rudder
+            # ArduPlane default outputs: 1=aileron 2=elevator 3=throttle 4=rudder.
+            # Elevator is negated: ArduPilot high PWM = nose up, JSBSim
+            # positive elevator-cmd-norm = trailing edge down = nose down.
             ch = [0.0] * 16
             ch[0] = pwm_to_norm(pwm[0], True)
-            ch[1] = pwm_to_norm(pwm[1], True)
+            ch[1] = -pwm_to_norm(pwm[1], True)
             ch[2] = pwm_to_norm(pwm[2], False)
             ch[3] = pwm_to_norm(pwm[3], True)
             for i in range(4, 16):

@@ -63,6 +63,7 @@ export class FlySimCore {
   private accumulator = 0;
   private lastTime = 0;
   private rafId: number | null = null;
+  private timerId: number | null = null;
   private _physicsStepsLastFrame = 0;
   private aircraftLoader!: AircraftLoader;
   private logListeners: Map<FlySimEvent, Set<(data: any) => void>> = new Map();
@@ -264,7 +265,26 @@ export class FlySimCore {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
+    if (this.timerId !== null) {
+      clearTimeout(this.timerId);
+      this.timerId = null;
+    }
     console.log('Simulation stopped');
+  }
+
+  /**
+   * Schedule the next loop iteration. requestAnimationFrame is throttled
+   * (or paused entirely) in hidden/background tabs, which starves external
+   * consumers — a SITL autopilot lock-stepping on our state stream sees its
+   * IMU rate collapse. Fall back to a short timeout when the page is hidden
+   * so physics keeps its 120 Hz cadence.
+   */
+  private scheduleLoop(): void {
+    if (typeof document !== 'undefined' && document.hidden) {
+      this.timerId = setTimeout(this.loop, this.physicsDt) as unknown as number;
+    } else {
+      this.rafId = requestAnimationFrame(this.loop);
+    }
   }
 
   /**
@@ -273,7 +293,7 @@ export class FlySimCore {
   private loop = (): void => {
     if (!this.isRunning) return;
 
-    this.rafId = requestAnimationFrame(this.loop);
+    this.scheduleLoop();
 
     const currentTime = performance.now();
     const frameTime = currentTime - this.lastTime;
@@ -408,7 +428,9 @@ export class FlySimCore {
     if (!this.exec) return null;
 
     return {
-      latitude: this.getProperty('position/lat-gc-deg'),
+      // Geodetic latitude — what GPS receivers and autopilots use. The
+      // geocentric value (lat-gc-deg) differs by up to ~0.19° (≈20 km).
+      latitude: this.getProperty('position/lat-geod-deg'),
       longitude: this.getProperty('position/long-gc-deg'),
       altitude: this.getProperty('position/h-agl-ft'),
       roll: this.getProperty('attitude/roll-rad'),
