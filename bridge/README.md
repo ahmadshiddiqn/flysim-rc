@@ -23,29 +23,37 @@ its clock). The browser publishes body rates, specific force, and NED
 velocity (added to `AircraftState` for this purpose), so the EKF gets real
 IMU-grade data from JSBSim.
 
-## Verified 2026-07-07
+## Verified 2026-07-08 (live, end-to-end)
 
-- ArduPlane V4.6.3 (prebuilt Windows binary) ran with `--model json`,
-  streamed servo frames at 1200 Hz into the bridge; MAVProxy connected on
-  TCP 5760 and detected the vehicle (heartbeat).
-- Bridge replies validated against an exact emulation of ArduPilot's
-  `SIM_JSON.cpp` receive path (framing between two newline separators,
-  mandatory field set, monotonic timestamps): 60/60 frames accepted,
-  physically consistent attitude/accel from the live browser sim.
+Full stack exercised with **ArduPlane V4.6.3** (prebuilt cygwin Windows
+binary from firmware.ardupilot.org) + **MAVProxy** + browser:
 
-### Windows Firewall caveat
+- ArduPlane SITL with its internal `plane` model **armed and flew**
+  (TAKEOFF mode, climb to 50 m AGL at 16 m/s, TECS loiter at 23.5 kt /
+  56% throttle), monitored and commanded through MAVProxy's UDP tee.
+- `bridge.py --mode sitl --udp 127.0.0.1:14550` fed by
+  `mavproxy --master=tcp:127.0.0.1:5760 --out=udp:127.0.0.1:14550`:
+  ArduPilot's live SERVO_OUTPUT_RAW drove the browser aircraft — the
+  panel mirrored TECS throttle (0.55) and stabilization surface commands
+  in real time, and the JSBSim aircraft physically accelerated under
+  ArduPilot throttle.
+- `ardupilot-json-bridge.py` (browser as the physics engine): replies
+  validated against a byte-exact emulation of ArduPilot's `SIM_JSON.cpp`
+  receive path — 60/60 frames accepted, mandatory fields, advancing
+  lock-step timestamps.
 
-On Windows, Defender Firewall silently creates **inbound Block rules** for
-any new unsigned executable the moment it binds a socket — including
-loopback UDP. This drops the bridge's JSON replies before ArduPilot's
-`recv()` sees them (symptom: endless `No JSON sensor message received,
-resending servos`). Renaming/moving the exe doesn't help; a new block rule
-appears instantly. Fix once, as Administrator:
+### Windows/cygwin JSON-backend caveat
 
-```bat
-netsh advfirewall firewall delete rule name="arduplane.exe"
-netsh advfirewall firewall add rule name="ArduPilot SITL" dir=in action=allow program="C:\path\to\ArduPlane.exe"
-```
+The prebuilt **cygwin** SITL binaries never receive the JSON backend's UDP
+replies on Windows (symptom: endless `No JSON sensor message received,
+resending servos`). This is **not** the Windows Firewall: it persists with
+allow-only rules and was reproduced with every reply variant (same-socket
+9002 source, ephemeral source, connected-UDP, port 9003). TCP (SERIAL0)
+and outbound UDP work fine — the defect is specific to inbound UDP on the
+cygwin build's auto-bound JSON socket.
 
-(Alternatively run ArduPilot SITL under WSL2/Docker so its sockets never
-touch the Windows firewall.)
+Workarounds for full closed-loop (browser as physics):
+- run ArduPilot SITL under **WSL2 / Docker / a Linux box** pointing
+  `--model json:<windows-host-ip>` at this bridge, or
+- use the **mirroring topology** above (`bridge.py` + SERVO_OUTPUT_RAW),
+  which works with the Windows binaries as-is.

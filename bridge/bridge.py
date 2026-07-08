@@ -211,7 +211,11 @@ class SitlBridge:
             print(f"[bridge] WS disconnect: {e}")
         finally:
             recv_task.cancel()
-            self.ws_client = None
+            # Only clear if we are still the active client — a reconnect may
+            # already have replaced us, and nulling it would freeze the new
+            # client's control stream.
+            if self.ws_client is ws:
+                self.ws_client = None
             print("[bridge] Browser disconnected")
 
     # ── Entry point ──────────────────────────────────────────────────────────
