@@ -53,12 +53,13 @@ export class EngineManager {
     const rpm = this.props.getProperty('propulsion/engine[0]/engine-rpm');
 
     if (rpm > 440 || this.spinUpAttempts >= MAX_SPIN_UP_STEPS) {
-      if (rpm <= 440) {
-        // Cranking never caught (electric/turbine/exotic engines, or a model
-        // that needs primer states we don't simulate). Force-start every
-        // engine — sim usability wins over start-procedure realism here.
-        this.props.setProperty('propulsion/set-running', -1);
-      }
+      // Force-run unconditionally. Crossing 440 RPM under the starter does
+      // not prove combustion caught — the J3Cub cranks to ~440 RPM on starter
+      // torque alone, and cutting the starter there leaves a dead engine with
+      // _running latched true (no retry, aircraft won't move). InitRunning is
+      // a no-op on an engine that genuinely caught, so this is safe for all
+      // engine types — sim usability wins over start-procedure realism here.
+      this.props.setProperty('propulsion/set-running', -1);
       this.props.setProperty('propulsion/starter_cmd', 0);
       this._running = true;
       const resolve = this.spinUpResolve;
