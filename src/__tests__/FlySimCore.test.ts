@@ -111,7 +111,9 @@ describe('FlySimCore', () => {
     expect(exec.properties.get('fcs/aileron-cmd-norm')).toBeCloseTo(0.1);
     expect(exec.properties.get('fcs/elevator-cmd-norm')).toBeCloseTo(-0.2);
     expect(exec.properties.get('fcs/throttle-cmd-norm')).toBe(0);
-    expect(exec.properties.get('fcs/rudder-cmd-norm')).toBeCloseTo(0.4);
+    // Rudder is negated at the SDK boundary: channel +0.4 (RC convention,
+    // nose right) becomes JSBSim rudder-cmd -0.4 (aero convention).
+    expect(exec.properties.get('fcs/rudder-cmd-norm')).toBeCloseTo(-0.4);
     expect(exec.properties.get('fcs/channel-5-norm')).toBeCloseTo(0.5);
     expect(exec.properties.get('fcs/channel-6-norm')).toBeCloseTo(-0.6);
   });

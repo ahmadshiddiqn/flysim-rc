@@ -441,7 +441,8 @@ export class FlySimCore {
       verticalSpeed: this.getProperty('velocities/h-dot-fps'),
       aileron: this.getProperty('fcs/aileron-cmd-norm'),
       elevator: this.getProperty('fcs/elevator-cmd-norm'),
-      rudder: this.getProperty('fcs/rudder-cmd-norm'),
+      // Negated back to RC convention (positive = nose right) — see setControls.
+      rudder: -this.getProperty('fcs/rudder-cmd-norm'),
       throttle: this.getProperty('fcs/throttle-cmd-norm'),
       leftBrake: this.getProperty('fcs/left-brake-cmd-norm'),
       rightBrake: this.getProperty('fcs/right-brake-cmd-norm'),
@@ -481,7 +482,14 @@ export class FlySimCore {
 
     if (aileron  !== undefined) this.setProperty('fcs/aileron-cmd-norm',  aileron);
     if (elevator !== undefined) this.setProperty('fcs/elevator-cmd-norm', elevator);
-    if (rudder   !== undefined) this.setProperty('fcs/rudder-cmd-norm',   rudder);
+    // The SDK's rudder contract is RC/ArduPilot convention: positive = nose
+    // RIGHT. JSBSim aero convention is the opposite — positive rudder-cmd
+    // deflects the rudder so the nose yaws LEFT (standard negative Cn_dr;
+    // verified empirically on J3Cub/c172p). Negate at this boundary so every
+    // input source (keyboard/touch/gamepad/SITL) speaks RC convention.
+    // NOTE: the bundled multirotor SCAS models are generated with a matching
+    // negative refYaw gain (scripts/generate-multirotor.mjs).
+    if (rudder   !== undefined) this.setProperty('fcs/rudder-cmd-norm',   -rudder);
     if (throttle !== undefined) this.setProperty('fcs/throttle-cmd-norm', throttle);
 
     // Extended channels 4–15: write to generic fcs/channel-N-norm properties.

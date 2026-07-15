@@ -325,7 +325,7 @@ function flightControlXml(frame) {
     </pure_gain>
     <pure_gain name="refYaw_rps">
       <input>fcs/pilotYaw_norm</input>
-      <gain>0.75</gain>
+      <gain>-0.75</gain>
       <output>fcs/refYaw_rps</output>
     </pure_gain>
   </channel>
