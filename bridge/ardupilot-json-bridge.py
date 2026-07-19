@@ -67,6 +67,35 @@ class JsonBridge:
 
     # ── ArduPilot side ───────────────────────────────────────────────────────
 
+    @staticmethod
+    def _finite(*vals) -> bool:
+        try:
+            return all(v is not None and math.isfinite(float(v)) for v in vals)
+        except (TypeError, ValueError):
+            return False
+
+    def state_valid(self) -> bool:
+        """Reject non-finite browser states — forwarding a NaN into ArduPilot
+        trips its floating-point-exception trap and aborts the autopilot."""
+        s = self.state
+        if s is None:
+            return False
+        flat = [s.get("simTime"), s.get("lat"), s.get("lon"), s.get("alt"),
+                s.get("roll"), s.get("pitch"), s.get("heading"), s.get("airspeed")]
+        for key in ("gyro", "accel", "velNED"):
+            v = s.get(key) or [0, 0, 0]
+            flat.extend(v)
+        if not self._finite(*flat):
+            return False
+        # Magnitude sanity: a diverging FDM produces huge-but-finite values
+        # first; better to stall the lock-step than feed them to the AHRS.
+        gyro = [abs(float(g)) for g in (s.get("gyro") or [0, 0, 0])]
+        accel = [abs(float(a)) for a in (s.get("accel") or [0, 0, 0])]
+        vel = [abs(float(v)) for v in (s.get("velNED") or [0, 0, 0])]
+        return (max(gyro) < 100.0            # rad/s
+                and max(accel) < 1300.0      # ft/s^2 (~40 g)
+                and max(vel) < 700.0)        # ft/s
+
     def _json_reply(self) -> bytes:
         s = self.state
         # simTime drives ArduPilot's clock; it must only ever increase.
@@ -121,12 +150,14 @@ class JsonBridge:
             print(f"[json-bridge] {self.frames} frames (count={frame_count}), pwm[0..3] = {pwm[:4]}")
 
         # Reply with the latest browser state (lock-step release).
-        if self.state is not None:
+        # Invalid/NaN states are dropped: ArduPilot stalls its lock-step and
+        # waits instead of crunching a NaN and aborting on SIGFPE.
+        if self.state_valid():
             transport.sendto(self._json_reply(), addr)
 
         # Forward actuators to the browser, throttled to ~60 Hz.
         now = asyncio.get_event_loop().time()
-        if self.ws_client is not None and now - self.last_ctrl_sent > 1 / 60:
+        if self.ws_client is not None and now - self.last_ctrl_sent > 1 / 120:
             self.last_ctrl_sent = now
             # ArduPlane default outputs: 1=aileron 2=elevator 3=throttle 4=rudder.
             # Elevator is negated: ArduPilot high PWM = nose up, JSBSim
@@ -138,7 +169,10 @@ class JsonBridge:
             ch[3] = pwm_to_norm(pwm[3], True)
             for i in range(4, 16):
                 ch[i] = pwm_to_norm(pwm[i], True) if pwm[i] > 0 else 0.0
-            msg = {"type": "control", "channels": ch,
+            # Raw PWMs ride along so the browser can do frame-aware mapping -
+            # for multirotors ArduCopter's outputs are MOTORS, not sticks,
+            # and the sim feeds them straight to the ESC external inputs.
+            msg = {"type": "control", "channels": ch, "pwm": list(pwm),
                    "aileron": ch[0], "elevator": ch[1],
                    "throttle": ch[2], "rudder": ch[3]}
             asyncio.ensure_future(self._ws_send(json.dumps(msg)), loop=self._loop)
